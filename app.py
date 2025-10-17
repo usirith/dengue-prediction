@@ -71,7 +71,7 @@ def load_data():
     """Load and cache the data and predictions"""
     try:
         # Load original data
-        data = pd.read_csv('Dengue_Data (2010-2020).csv')
+        data = pd.read_csv('Dengue_Data (2010-2025).csv')
         
         # Remove empty columns
         data = data.drop(columns=[col for col in data.columns if 'Unnamed' in col or col == ''])
@@ -87,7 +87,7 @@ def load_data():
         data = data.dropna()
         
         # Load predictions
-        predictions = pd.read_csv('dengue_predictions_2021.csv')
+        predictions = pd.read_csv('dengue_predictions_2026.csv')
         
         # Load model performance
         performance = pd.read_csv('model_performance.csv')
@@ -139,17 +139,17 @@ def create_time_series_plot(data, district, predictions):
         marker=dict(size=4)
     ))
     
-    # Predictions for 2021
+    # Predictions for 2026
     models = ['ARIMA', 'ExponentialSmoothing', 'RandomForest', 'Prophet']
     colors = ['red', 'green', 'orange', 'purple']
     
     for model, color in zip(models, colors):
         # Extract monthly predictions
-        monthly_cols = [col for col in predictions.columns if col.startswith(f'{model}_2021-') and col != f'{model}_Annual_Total']
+        monthly_cols = [col for col in predictions.columns if col.startswith(f'{model}_2026-') and col != f'{model}_Annual_Total']
         if monthly_cols:
             pred_data = predictions[predictions['District'] == district]
             if not pred_data.empty:
-                dates = pd.date_range(start='2021-01-01', periods=12, freq='MS')
+                dates = pd.date_range(start='2026-01-01', periods=12, freq='MS')
                 values = pred_data[monthly_cols].values.flatten()
                 
                 fig.add_trace(go.Scatter(
@@ -162,7 +162,7 @@ def create_time_series_plot(data, district, predictions):
                 ))
     
     fig.update_layout(
-        title=f"Dengue Cases: {district} - Historical Data and 2021 Predictions",
+        title=f"Dengue Cases: {district} - Historical Data and 2026 Predictions",
         xaxis_title="Date",
         yaxis_title="Number of Cases",
         hovermode='x unified',
@@ -232,7 +232,7 @@ def create_predictions_comparison_chart(predictions, district):
     ])
     
     fig.update_layout(
-        title=f"2021 Annual Predictions Comparison - {district}",
+        title=f"2026 Annual Predictions Comparison - {district}",
         xaxis_title="Model",
         yaxis_title="Predicted Cases",
         height=400
@@ -370,7 +370,7 @@ def show_overview_page(data, predictions, performance):
     
     # Add predictions
     pred_summary = predictions.groupby('District')[['ARIMA_Annual_Total', 'RandomForest_Annual_Total', 'Prophet_Annual_Total']].first()
-    pred_summary.columns = ['ARIMA 2021', 'RF 2021', 'Prophet 2021']
+    pred_summary.columns = ['ARIMA 2026', 'RF 2026', 'Prophet 2026']
     
     combined_summary = pd.concat([district_summary, pred_summary], axis=1)
     st.dataframe(combined_summary, width="stretch")
@@ -455,7 +455,7 @@ def show_predictions_page(data, predictions, performance, district):
         return
     
     # Display predictions for selected district
-    st.subheader(f"📊 2021 Predictions for {district}")
+    st.subheader(f"📊 2026 Predictions for {district}")
     
     # Annual totals
     models = ['ARIMA', 'ExponentialSmoothing', 'RandomForest', 'Prophet']
@@ -504,7 +504,7 @@ def show_predictions_page(data, predictions, performance, district):
     for i, month in enumerate(months, 1):
         month_data = {'Month': month}
         for model in models:
-            col_name = f'{model}_2021-{i:02d}'
+            col_name = f'{model}_2026-{i:02d}'
             if col_name in pred_data.columns:
                 month_data[model] = f"{pred_data[col_name].iloc[0]:.0f}"
             else:
@@ -556,7 +556,7 @@ def show_year_predictions_page(data, predictions, performance):
         current_year = datetime.now().year
         prediction_year = st.number_input(
             "Select Year for Prediction",
-            min_value=2021,
+            min_value=2026,
             max_value=2030,
             value=current_year + 1,
             step=1,
@@ -594,9 +594,9 @@ def generate_year_predictions(data, predictions, performance, target_year, model
     """Generate predictions for a specific year"""
     
     st.subheader(f"📊 Predictions for {target_year}")
-    
-    # Calculate years ahead from 2021 (base year)
-    years_ahead = target_year - 2021
+
+    # Calculate years ahead from 2026 (base year)
+    years_ahead = target_year - 2026
     
     # Create results container
     results = []
@@ -621,7 +621,7 @@ def generate_year_predictions(data, predictions, performance, target_year, model
         monthly_avg = district_data.groupby(district_data['Date'].dt.month)['Cases'].mean()
         yearly_trend = (district_data['Cases'].iloc[-12:].mean() - district_data['Cases'].iloc[:12].mean()) / 10
         
-        # Get base predictions from 2021
+        # Get base predictions from 2026
         base_predictions = predictions[predictions['District'] == district]
         
         if base_predictions.empty:
@@ -891,7 +891,7 @@ def show_data_explorer_page(data, predictions, performance):
     tab1, tab2, tab3 = st.tabs(["📊 Historical Data", "🔮 Predictions", "📈 Performance"])
     
     with tab1:
-        st.subheader("Historical Dengue Data (2010-2020)")
+        st.subheader("Historical Dengue Data (2010-2025)")
         
         # Filters
         col1, col2 = st.columns(2)
@@ -907,8 +907,8 @@ def show_data_explorer_page(data, predictions, performance):
             year_range = st.slider(
                 "Select Year Range",
                 min_value=2010,
-                max_value=2020,
-                value=(2010, 2020)
+                max_value=2025,
+                value=(2010, 2025)
             )
         
         # Filter data
@@ -918,7 +918,7 @@ def show_data_explorer_page(data, predictions, performance):
             (data['Date'].dt.year <= year_range[1])
         ]
         
-        st.dataframe(filtered_data, er_width="stretch")
+        st.dataframe(filtered_data, width="stretch")
         
         # Download button
         csv = filtered_data.to_csv(index=False)
@@ -930,7 +930,7 @@ def show_data_explorer_page(data, predictions, performance):
         )
     
     with tab2:
-        st.subheader("2021 Predictions")
+        st.subheader("2026 Predictions")
         st.dataframe(predictions, width="stretch")
         
         # Download button
@@ -938,7 +938,7 @@ def show_data_explorer_page(data, predictions, performance):
         st.download_button(
             label="📥 Download Predictions",
             data=csv_pred,
-            file_name="dengue_predictions_2021.csv",
+            file_name="dengue_predictions_2026.csv",
             mime="text/csv"
         )
     

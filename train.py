@@ -380,7 +380,7 @@ class DengueTimeSeriesPredictor:
     
     def generate_predictions(self):
         print("\n" + "="*50)
-        print("GENERATING 2021 PREDICTIONS")
+        print("GENERATING 2026 PREDICTIONS")
         print("="*50)
         
         prediction_results = []
@@ -456,7 +456,7 @@ class DengueTimeSeriesPredictor:
                     plt.barh(range(len(values)), values[sorted_idx])
                     plt.yticks(range(len(values)), [districts[idx] for idx in sorted_idx])
                     plt.xlabel('Predicted Annual Cases')
-                    plt.title(f'{model} - 2021 Annual Predictions')
+                    plt.title(f'{model} - 2026 Annual Predictions')
                     plt.gca().invert_yaxis()
             
             plt.tight_layout()
@@ -469,8 +469,8 @@ class DengueTimeSeriesPredictor:
         print("="*50)
         
         if hasattr(self, 'predictions_df'):
-            self.predictions_df.to_csv('/home/navin/CODE/ml/dengue_predictions_2021.csv', index=False)
-            print("Predictions saved to: dengue_predictions_2021.csv")
+            self.predictions_df.to_csv('/home/navin/CODE/ml/dengue_predictions_2026.csv', index=False)
+            print("Predictions saved to: dengue_predictions_2026.csv")
         
         if hasattr(self, 'model_performance'):
             performance_data = []
@@ -512,7 +512,7 @@ class DengueTimeSeriesPredictor:
         print("="*60)
 
 def main():
-    predictor = DengueTimeSeriesPredictor('/home/navin/CODE/ml/Dengue_Data (2010-2020).csv')
+    predictor = DengueTimeSeriesPredictor('/home/navin/CODE/ml/Dengue_Data (2010-2025).csv')
     
     predictor.run_complete_analysis()
     
