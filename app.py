@@ -9,6 +9,8 @@ from plotly.subplots import make_subplots
 import altair as alt
 from datetime import datetime, timedelta
 import warnings
+import folium
+from streamlit_folium import st_folium
 warnings.filterwarnings('ignore')
 
 # Import the predictor class
@@ -216,7 +218,7 @@ def create_predictions_comparison_chart(predictions, district):
     if pred_data.empty:
         return None
     
-    models = ['ARIMA', 'ExponentialSmoothing', 'RandomForest', 'Prophet']
+    models = ['ARIMA', 'RandomForest', 'Prophet']
     annual_totals = []
     
     for model in models:
@@ -294,6 +296,143 @@ def create_seasonal_analysis_chart(data, district):
     
     return fig
 
+def create_sri_lanka_heatmap(data, year=None, aggregation='total', predictions=None):
+    """Create a heatmap of dengue cases on Sri Lankan districts map"""
+    
+    # District coordinates (approximate center points for Sri Lankan districts)
+    district_coords = {
+        'Colombo': [6.9271, 79.8612],
+        'Gampaha': [7.0873, 79.9990],
+        'Kalutara': [6.5854, 80.1275],
+        'Kandy': [7.2906, 80.6337],
+        'Matale': [7.4675, 80.6234],
+        'N eliya': [6.9497, 80.7891],  # Nuwara Eliya
+        'Galle': [6.0535, 80.2210],
+        'Hambantota': [6.1241, 81.1185],
+        'Matara': [5.9485, 80.5353],
+        'Badulla': [6.9934, 81.0550],
+        'Moneragala': [6.8714, 81.3514],
+        'Rathnapura': [6.6828, 80.3992],
+        'Kegalle': [7.2513, 80.3464],
+        'Ampara': [7.2973, 81.6816],
+        'Batticaloa': [7.7102, 81.6924],
+        'Kalmunai': [7.4138, 81.8165],
+        'Trincomalee': [8.5874, 81.2152],
+        'Anuradhapura': [8.3114, 80.4037],
+        'Polonnaruwa': [7.9403, 81.0188],
+        'Kurunegala': [7.4818, 80.3609],
+        'Puttalam': [8.0362, 79.8283],
+        'Jaffna': [9.6615, 80.0255],
+        'Kilinochchi': [9.3847, 80.4022],
+        'Mannar': [8.9810, 79.9217],
+        'Mullaitivu': [9.2671, 80.8142],
+        'Vavuniya': [8.7514, 80.4971],
+        # Adding alternative spelling variations
+        'Kalminai': [7.4138, 81.8165],  # Same as Kalmunai
+        'Killinochchi': [9.3847, 80.4022],  # Same as Kilinochchi
+    }
+    
+    # Handle prediction data for 2026
+    if year == 2026 and predictions is not None:
+        # Use predictions data
+        district_cases = predictions[['District', aggregation]].copy()
+        district_cases.columns = ['District', 'Cases']
+        data_type = "Predicted"
+        model_name = aggregation.replace('_Annual_Total', '')
+    else:
+        # Use historical data
+        if year:
+            year_data = data[data['Date'].dt.year == year]
+        else:
+            year_data = data
+        
+        if aggregation == 'total':
+            district_cases = year_data.groupby('District')['Cases'].sum().reset_index()
+        elif aggregation == 'average':
+            district_cases = year_data.groupby('District')['Cases'].mean().reset_index()
+        else:  # recent (last 12 months)
+            recent_data = data.tail(12 * len(data['District'].unique()))
+            district_cases = recent_data.groupby('District')['Cases'].sum().reset_index()
+        
+        data_type = "Historical"
+        model_name = None
+    
+    # Create base map centered on Sri Lanka
+    sri_lanka_map = folium.Map(
+        location=[7.8731, 80.7718],  # Center of Sri Lanka
+        zoom_start=7,
+        tiles='OpenStreetMap'
+    )
+    
+    # Add district markers with heatmap colors
+    max_cases = district_cases['Cases'].max()
+    min_cases = district_cases['Cases'].min()
+    
+    for _, row in district_cases.iterrows():
+        district = row['District']
+        cases = row['Cases']
+        
+        if district in district_coords:
+            # Calculate color intensity based on cases
+            if max_cases > min_cases:
+                intensity = (cases - min_cases) / (max_cases - min_cases)
+            else:
+                intensity = 0.5
+            
+            # Color gradient from green (low) to red (high)
+            if intensity < 0.3:
+                color = '#00FF00'  # Green
+            elif intensity < 0.6:
+                color = '#FFFF00'  # Yellow
+            elif intensity < 0.8:
+                color = '#FF8000'  # Orange
+            else:
+                color = '#FF0000'  # Red
+            
+            # Create popup content
+            popup_content = f"<b>{district}</b><br>"
+            if data_type == "Predicted":
+                popup_content += f"2026 Prediction ({model_name}): {cases:,.0f}<br>"
+            else:
+                popup_content += f"{data_type} Cases: {cases:,.0f}<br>"
+            
+            # Add tooltip content
+            if data_type == "Predicted":
+                tooltip_content = f"{district}: {cases:,.0f} predicted cases ({model_name})"
+            else:
+                tooltip_content = f"{district}: {cases:,.0f} cases"
+            
+            # Create circle marker
+            folium.CircleMarker(
+                location=district_coords[district],
+                radius=10 + (intensity * 20),  # Size based on intensity
+                popup=popup_content,
+                tooltip=tooltip_content,
+                color='black' if data_type == "Historical" else 'blue',
+                weight=2,
+                fillColor=color,
+                fillOpacity=0.7
+            ).add_to(sri_lanka_map)
+    
+    # Add a custom legend
+    legend_title = "2026 Predictions" if data_type == "Predicted" else "Historical Data"
+    legend_html = f"""
+    <div style="position: fixed; 
+                bottom: 50px; left: 50px; width: 220px; height: 140px; 
+                background-color: white; border:2px solid grey; z-index:9999; 
+                font-size:14px; padding: 10px">
+    <p><b>{legend_title}</b></p>
+    {"<p><i>Model: " + model_name + "</i></p>" if model_name else ""}
+    <p><i class="fa fa-circle" style="color:#00FF00"></i> Low (0-30%)</p>
+    <p><i class="fa fa-circle" style="color:#FFFF00"></i> Medium (30-60%)</p>
+    <p><i class="fa fa-circle" style="color:#FF8000"></i> High (60-80%)</p>
+    <p><i class="fa fa-circle" style="color:#FF0000"></i> Very High (80-100%)</p>
+    </div>
+    """
+    sri_lanka_map.get_root().html.add_child(folium.Element(legend_html))
+    
+    return sri_lanka_map
+
 def main():
     """Main application function"""
     
@@ -314,7 +453,7 @@ def main():
     # Page selection
     page = st.sidebar.selectbox(
         "Select Page",
-        ["🏠 Overview", "📊 District Analysis", "🔮 Predictions", "📅 Yearly Predictions", "📈 Model Performance", "📋 Data Explorer"]
+        ["🏠 Overview", "🌍 Sri Lanka Heatmap", "📊 District Analysis", "🔮 Predictions", "📅 Yearly Predictions", "📈 Model Performance", "📋 Data Explorer"]
     )
     
     # District selection (for relevant pages)
@@ -324,6 +463,8 @@ def main():
     # Page routing
     if page == "🏠 Overview":
         show_overview_page(data, predictions, performance)
+    elif page == "🌍 Sri Lanka Heatmap":
+        show_heatmap_page(data)
     elif page == "📊 District Analysis":
         show_district_analysis_page(data, predictions, performance, selected_district)
     elif page == "🔮 Predictions":
@@ -387,6 +528,31 @@ def show_overview_page(data, predictions, performance):
     )
     fig.update_layout(height=400)
     st.plotly_chart(fig, config={"responsive": True})
+    
+    # Geographic distribution preview
+    st.subheader("🗺️ Geographic Distribution")
+    st.info("💡 **Tip:** Visit the 'Sri Lanka Heatmap' page for an interactive map view!")
+    
+    # Show a geographical bar chart by district
+    geo_data = district_summary.reset_index()
+    geo_data = geo_data.sort_values('Total Cases', ascending=True)
+    
+    fig_geo = px.bar(
+        geo_data,
+        x='Total Cases',
+        y='District',
+        orientation='h',
+        title="Geographic Distribution of Dengue Cases by District",
+        color='Total Cases',
+        color_continuous_scale='Reds',
+        height=600
+    )
+    fig_geo.update_layout(
+        yaxis={'categoryorder': 'total ascending'},
+        showlegend=False
+    )
+    st.plotly_chart(fig_geo, config={"responsive": True})
+    st.plotly_chart(fig, config={"responsive": True})
 
 def show_district_analysis_page(data, predictions, performance, district):
     """Show detailed district analysis"""
@@ -442,6 +608,122 @@ def show_district_analysis_page(data, predictions, performance, district):
         st.subheader("🎯 Model Performance")
         fig_perf = create_model_performance_chart(performance, district)
     st.plotly_chart(fig_perf, config={"responsive": True})
+
+def show_heatmap_page(data):
+    """Show Sri Lanka heatmap page"""
+    st.header("🗺️ Sri Lanka Dengue Cases Heatmap")
+    st.markdown("**Interactive map showing dengue case distribution across Sri Lankan districts (historical data + 2026 predictions)**")
+    
+    # Load predictions data
+    try:
+        predictions = pd.read_csv('dengue_predictions_2026.csv')
+    except:
+        predictions = None
+    
+    # Control options
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Year selection - now includes 2026 predictions
+        years = ['All Years'] + sorted(data['Date'].dt.year.unique().tolist(), reverse=True)
+        if predictions is not None:
+            years.insert(1, '2026 (Predictions)')
+        selected_year = st.selectbox("Select Year", years)
+        
+        if selected_year == 'All Years':
+            year_filter = None
+            is_prediction = False
+        elif selected_year == '2026 (Predictions)':
+            year_filter = 2026
+            is_prediction = True
+        else:
+            year_filter = selected_year
+            is_prediction = False
+    
+    with col2:
+        # Aggregation method - different options for predictions
+        if is_prediction:
+            agg_method = st.selectbox(
+                "Prediction Model", 
+                ['ARIMA_Annual_Total', 'RandomForest_Annual_Total', 'Prophet_Annual_Total'],
+                format_func=lambda x: {
+                    'ARIMA_Annual_Total': 'ARIMA Model',
+                    'RandomForest_Annual_Total': 'Random Forest',
+                    'Prophet_Annual_Total': 'Prophet Model'
+                }[x]
+            )
+        else:
+            agg_method = st.selectbox(
+                "Aggregation Method", 
+                ['total', 'average', 'recent'],
+                format_func=lambda x: {
+                    'total': 'Total Cases',
+                    'average': 'Average Cases', 
+                    'recent': 'Recent (Last 12 months)'
+                }[x]
+            )
+    
+    with col3:
+        # Display statistics
+        if is_prediction and predictions is not None:
+            total_pred = predictions[agg_method].sum()
+            st.metric("2026 Prediction", f"{total_pred:,.0f}")
+        elif year_filter and not is_prediction:
+            year_data = data[data['Date'].dt.year == year_filter]
+            total_cases = year_data['Cases'].sum()
+            st.metric("Total Cases", f"{total_cases:,}")
+        else:
+            total_cases = data['Cases'].sum()
+            st.metric("All-time Total", f"{total_cases:,}")
+    
+    try:
+        # Create and display the heatmap
+        if is_prediction:
+            heatmap = create_sri_lanka_heatmap(data, year_filter, agg_method, predictions)
+        else:
+            heatmap = create_sri_lanka_heatmap(data, year_filter, agg_method)
+        st_folium(heatmap, width=1000, height=600)
+        
+        # Display summary statistics
+        st.subheader("📊 District Statistics")
+        
+        # Prepare data for display
+        if is_prediction and predictions is not None:
+            summary_stats = predictions[['District', agg_method]].copy()
+            summary_stats = summary_stats.sort_values(agg_method, ascending=False)
+            summary_stats[agg_method] = summary_stats[agg_method].round(1)
+            summary_stats.columns = ['District', f'2026 Prediction ({agg_method.replace("_Annual_Total", "")})']
+        else:
+            if year_filter and not is_prediction:
+                display_data = data[data['Date'].dt.year == year_filter]
+            else:
+                display_data = data
+                
+            if agg_method == 'total':
+                summary_stats = display_data.groupby('District')['Cases'].sum().reset_index()
+            elif agg_method == 'average':
+                summary_stats = display_data.groupby('District')['Cases'].mean().reset_index()
+            else:  # recent
+                recent_data = data.tail(12 * len(data['District'].unique()))
+                summary_stats = recent_data.groupby('District')['Cases'].sum().reset_index()
+            
+            summary_stats = summary_stats.sort_values('Cases', ascending=False)
+            summary_stats['Cases'] = summary_stats['Cases'].round(1)
+            summary_stats.columns = ['District', f'Cases ({agg_method.title()})']
+        
+        # Display as two columns
+        col1, col2 = st.columns(2)
+        mid_point = len(summary_stats) // 2
+        
+        with col1:
+            st.dataframe(summary_stats.iloc[:mid_point], use_container_width=True)
+        
+        with col2:
+            st.dataframe(summary_stats.iloc[mid_point:], use_container_width=True)
+    
+    except Exception as e:
+        st.error(f"Unable to create heatmap: {str(e)}")
+        st.info("Please install required packages: pip install folium streamlit-folium")
 
 def show_predictions_page(data, predictions, performance, district):
     """Show predictions page with input options"""
@@ -520,13 +802,13 @@ def show_year_predictions_page(data, predictions, performance):
     
     st.markdown("""
     <div class="info-box">
-        <h4>📅 Generate Predictions for Any Year</h4>
+        <h4>Generate Predictions for Any Year</h4>
         <p>Enter a year to get dengue case predictions for all districts. The models will extrapolate based on historical trends and patterns.</p>
     </div>
     """, unsafe_allow_html=True)
     
     # Year input form
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns([1, 10, 1])
     
     with col2:
         st.subheader("🎯 Prediction Parameters")
@@ -543,7 +825,7 @@ def show_year_predictions_page(data, predictions, performance):
         )
         
         # Model selection
-        available_models = ['ARIMA', 'ExponentialSmoothing', 'RandomForest', 'Prophet']
+        available_models = ['ARIMA', 'RandomForest', 'Prophet']
         selected_models = st.multiselect(
             "Select Models for Prediction",
             available_models,
