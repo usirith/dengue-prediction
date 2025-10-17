@@ -142,8 +142,8 @@ def create_time_series_plot(data, district, predictions):
     ))
     
     # Predictions for 2026
-    models = ['ARIMA', 'ExponentialSmoothing', 'RandomForest', 'Prophet']
-    colors = ['red', 'green', 'orange', 'purple']
+    models = ['ARIMA',  'RandomForest', 'Prophet']
+    colors = ['red', 'orange', 'purple']
     
     for model, color in zip(models, colors):
         # Extract monthly predictions
@@ -496,8 +496,12 @@ def show_overview_page(data, predictions, performance):
         st.metric("Avg Monthly Cases", f"{avg_monthly:.0f}")
     
     with col4:
-        # Best performing model overall
-        best_model = performance.groupby('Model')['MAE'].mean().idxmin()
+        # Best performing model overall (excluding Exponential Smoothing)
+        valid_performance = performance[performance['Model'] != 'ExponentialSmoothing']
+        if not valid_performance.empty:
+            best_model = valid_performance.groupby('Model')['MAE'].mean().idxmin()
+        else:
+            best_model = "N/A"
         st.metric("Best Model (Overall)", best_model)
     
     # District summary
@@ -740,7 +744,7 @@ def show_predictions_page(data, predictions, performance, district):
     st.subheader(f"📊 2026 Predictions for {district}")
     
     # Annual totals
-    models = ['ARIMA', 'ExponentialSmoothing', 'RandomForest', 'Prophet']
+    models = ['ARIMA', 'RandomForest', 'Prophet']
     annual_predictions = []
     
     for model in models:
@@ -757,18 +761,25 @@ def show_predictions_page(data, predictions, performance, district):
         st.subheader("📋 Annual Predictions")
         st.dataframe(pred_df, width="stretch")
         
-        # Best model recommendation
+        # Best model recommendation (excluding Exponential Smoothing)
         perf_district = performance[performance['District'] == district]
         if not perf_district.empty:
-            best_model = perf_district.loc[perf_district['MAE'].idxmin(), 'Model']
-            best_mae = perf_district['MAE'].min()
+            # Filter out Exponential Smoothing from consideration
+            valid_models = perf_district[perf_district['Model'] != 'ExponentialSmoothing']
             
-            st.markdown(f"""
-            <div class="success-box">
-                <h4>🏆 Recommended Model: {best_model}</h4>
-                <p>Lowest MAE: {best_mae:.2f}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            if not valid_models.empty:
+                best_model = valid_models.loc[valid_models['MAE'].idxmin(), 'Model']
+                best_mae = valid_models['MAE'].min()
+                
+                
+                st.markdown(f"""
+                <div class="success-box">
+                    <h4>🏆 Recommended Model: {best_model}</h4>
+                    <p>Lowest MAE: {best_mae:.2f}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.warning("No valid model recommendations available for this district.")
     
     with col2:
         st.subheader("📊 Predictions Comparison")
@@ -896,15 +907,15 @@ def generate_year_predictions(data, predictions, performance, target_year, model
                 
                 # Apply trend extrapolation with some randomness for realism
                 trend_factor = 1 + (yearly_trend * years_ahead / 1000)  # Moderate trend
-                seasonal_factor = np.random.normal(1.0, 0.1)  # Add some variability
+                # seasonal_factor = np.random.normal(1.0, 0.1)  # Add some variability
                 
                 # Calculate prediction based on model characteristics
                 if model == 'ARIMA':
                     # ARIMA tends to be more conservative
                     predicted_annual = base_annual * trend_factor * 0.95
-                elif model == 'ExponentialSmoothing':
-                    # ES can be more volatile
-                    predicted_annual = base_annual * trend_factor * seasonal_factor
+                # elif model == 'ExponentialSmoothing':
+                #     # ES can be more volatile
+                #     predicted_annual = base_annual * trend_factor * seasonal_factor
                 elif model == 'RandomForest':
                     # RF tends to be stable
                     predicted_annual = base_annual * trend_factor * 0.98
@@ -1094,38 +1105,67 @@ def show_model_performance_page(performance):
                          title="Root Mean Square Error by Model")
     st.plotly_chart(fig_rmse, config={"responsive": True})
     
-    # Model rankings
-    st.subheader("🏆 Model Rankings by District")
+    # Model rankings (excluding Exponential Smoothing)
+    st.subheader("🏆 Model Rankings by District (Reliable Models Only)")
     
-    # Calculate rankings
+    # Calculate rankings excluding Exponential Smoothing
     rankings = []
     for district in performance['District'].unique():
         district_perf = performance[performance['District'] == district]
-        best_mae = district_perf.loc[district_perf['MAE'].idxmin(), 'Model']
-        best_rmse = district_perf.loc[district_perf['RMSE'].idxmin(), 'Model']
-        rankings.append({
-            'District': district,
-            'Best MAE': best_mae,
-            'Best RMSE': best_rmse
-        })
+        
+        # Filter out Exponential Smoothing
+        valid_models = district_perf[district_perf['Model'] != 'ExponentialSmoothing']
+        
+        if not valid_models.empty:
+            best_mae = valid_models.loc[valid_models['MAE'].idxmin(), 'Model']
+            best_rmse = valid_models.loc[valid_models['RMSE'].idxmin(), 'Model']
+            
+            # Check if Exponential Smoothing was excluded
+            overall_best_mae = district_perf.loc[district_perf['MAE'].idxmin(), 'Model']
+            overall_best_rmse = district_perf.loc[district_perf['RMSE'].idxmin(), 'Model']
+            
+            mae_note = " (ES excluded)" if overall_best_mae == 'ExponentialSmoothing' else ""
+            rmse_note = " (ES excluded)" if overall_best_rmse == 'ExponentialSmoothing' else ""
+            
+            rankings.append({
+                'District': district,
+                'Best MAE': best_mae + mae_note,
+                'Best RMSE': best_rmse + rmse_note
+            })
+        else:
+            rankings.append({
+                'District': district,
+                'Best MAE': 'N/A',
+                'Best RMSE': 'N/A'
+            })
     
     rankings_df = pd.DataFrame(rankings)
     st.dataframe(rankings_df, width="stretch")
     
-    # Model win counts
+    # Model win counts (reliable models only)
     col1, col2 = st.columns(2)
     
     with col1:
-        mae_wins = rankings_df['Best MAE'].value_counts()
-        fig_mae_wins = px.pie(values=mae_wins.values, names=mae_wins.index, 
-                             title="Best MAE Model Distribution")
-    st.plotly_chart(fig_mae_wins, config={"responsive": True})
+        # Clean the model names by removing notes
+        clean_mae = [name.split(' (')[0] for name in rankings_df['Best MAE'] if name != 'N/A']
+        if clean_mae:
+            mae_wins = pd.Series(clean_mae).value_counts()
+            fig_mae_wins = px.pie(values=mae_wins.values, names=mae_wins.index, 
+                                 title="Best MAE Model Distribution (Reliable Models)")
+            st.plotly_chart(fig_mae_wins, config={"responsive": True})
+        else:
+            st.info("No MAE data available for reliable models")
     
     with col2:
-        rmse_wins = rankings_df['Best RMSE'].value_counts()
-        fig_rmse_wins = px.pie(values=rmse_wins.values, names=rmse_wins.index, 
-                              title="Best RMSE Model Distribution")
-    st.plotly_chart(fig_rmse_wins, config={"responsive": True})
+        # Clean the model names by removing notes
+        clean_rmse = [name.split(' (')[0] for name in rankings_df['Best RMSE'] if name != 'N/A']
+        if clean_rmse:
+            rmse_wins = pd.Series(clean_rmse).value_counts()
+            fig_rmse_wins = px.pie(values=rmse_wins.values, names=rmse_wins.index, 
+                                  title="Best RMSE Model Distribution (Reliable Models)")
+            st.plotly_chart(fig_rmse_wins, config={"responsive": True})
+        else:
+            st.info("No RMSE data available for reliable models")
 
 def show_data_explorer_page(data, predictions, performance):
     """Show data explorer page"""

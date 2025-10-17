@@ -153,30 +153,30 @@ class DengueTimeSeriesPredictor:
             print(f"ARIMA failed for {district_name}: {str(e)}")
             return None
     
-    def fit_exponential_smoothing(self, district_data, district_name):
-        try:
-            ts_data = district_data.set_index('Date')['Cases']
+    # def fit_exponential_smoothing(self, district_data, district_name):
+    #     try:
+    #         ts_data = district_data.set_index('Date')['Cases']
             
-            model = ExponentialSmoothing(
-                ts_data, 
-                trend='add', 
-                seasonal='add', 
-                seasonal_periods=12
-            )
-            fitted_model = model.fit()
+    #         model = ExponentialSmoothing(
+    #             ts_data, 
+    #             trend='add', 
+    #             seasonal='add', 
+    #             seasonal_periods=12
+    #         )
+    #         fitted_model = model.fit()
             
-            forecast = fitted_model.forecast(steps=12)
-            forecast_dates = pd.date_range(start=ts_data.index[-1] + pd.DateOffset(months=1), periods=12, freq='MS')
+    #         forecast = fitted_model.forecast(steps=12)
+    #         forecast_dates = pd.date_range(start=ts_data.index[-1] + pd.DateOffset(months=1), periods=12, freq='MS')
             
-            return {
-                'model': fitted_model,
-                'forecast': forecast,
-                'forecast_dates': forecast_dates
-            }
+    #         return {
+    #             'model': fitted_model,
+    #             'forecast': forecast,
+    #             'forecast_dates': forecast_dates
+    #         }
             
-        except Exception as e:
-            print(f"Exponential Smoothing failed for {district_name}: {str(e)}")
-            return None
+    #     except Exception as e:
+    #         print(f"Exponential Smoothing failed for {district_name}: {str(e)}")
+    #         return None
     
     def fit_random_forest(self, district_data, district_name):
         try:
