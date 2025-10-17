@@ -514,27 +514,6 @@ def show_predictions_page(data, predictions, performance, district):
     monthly_df = pd.DataFrame(monthly_data)
     st.dataframe(monthly_df, width="stretch")
     
-    # Custom prediction form
-    st.subheader("🎛️ Custom Prediction Parameters")
-    
-    with st.expander("Adjust Prediction Parameters"):
-        st.info("This section could be expanded to allow custom inputs for new predictions")
-        
-        # Example form for future enhancement
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            rainfall = st.slider("Rainfall Index", 0.0, 10.0, 5.0)
-        
-        with col2:
-            temperature = st.slider("Temperature (°C)", 20.0, 40.0, 30.0)
-        
-        with col3:
-            humidity = st.slider("Humidity (%)", 40.0, 100.0, 70.0)
-        
-        if st.button("Generate Custom Prediction"):
-            st.info("Custom prediction feature coming soon! This would integrate additional environmental factors.")
-
 def show_year_predictions_page(data, predictions, performance):
     """Show year-based predictions page"""
     st.header("🗓️ Year-Based Predictions")
@@ -803,23 +782,6 @@ def generate_year_predictions(data, predictions, performance, target_year, model
             )
             
             st.plotly_chart(fig_pie, config={"responsive": True})
-    
-    # Model confidence indicators
-    st.subheader("🎯 Prediction Confidence")
-    
-    st.markdown("""
-    <div class="info-box">
-        <h4>📊 Understanding Your Predictions</h4>
-        <ul>
-            <li><strong>ARIMA:</strong> Good for short-term trends, conservative estimates</li>
-            <li><strong>Exponential Smoothing:</strong> Captures seasonal patterns well</li>
-            <li><strong>Random Forest:</strong> Most stable, handles complex patterns</li>
-            <li><strong>Prophet:</strong> Best for long-term trends and seasonality</li>
-        </ul>
-        <p><strong>Note:</strong> Predictions become less accurate as you project further into the future. 
-        Consider using multiple models and ranges for better planning.</p>
-    </div>
-    """, unsafe_allow_html=True)
 
 def show_model_performance_page(performance):
     """Show model performance analysis"""
