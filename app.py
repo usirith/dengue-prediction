@@ -518,7 +518,7 @@ def show_overview_page(data, predictions, performance):
     pred_summary.columns = ['ARIMA 2026', 'RF 2026', 'Prophet 2026']
     
     combined_summary = pd.concat([district_summary, pred_summary], axis=1)
-    st.dataframe(combined_summary, width="stretch")
+    st.dataframe(combined_summary, use_container_width=True)
     
     # Top districts chart
     st.subheader("🏆 Top 10 Districts by Total Cases")
@@ -759,7 +759,7 @@ def show_predictions_page(data, predictions, performance, district):
     
     with col1:
         st.subheader("📋 Annual Predictions")
-        st.dataframe(pred_df, width="stretch")
+        st.dataframe(pred_df, use_container_width=True)
         
         # Best model recommendation (excluding Exponential Smoothing)
         perf_district = performance[performance['District'] == district]
@@ -805,7 +805,7 @@ def show_predictions_page(data, predictions, performance, district):
         monthly_data.append(month_data)
     
     monthly_df = pd.DataFrame(monthly_data)
-    st.dataframe(monthly_df, width="stretch")
+    st.dataframe(monthly_df, use_container_width=True)
     
 def show_year_predictions_page(data, predictions, performance):
     """Show year-based predictions page"""
@@ -947,7 +947,7 @@ def generate_year_predictions(data, predictions, performance, target_year, model
     
     with col1:
         st.subheader("📋 Prediction Results")
-        st.dataframe(results_df, width="stretch")
+        st.dataframe(results_df, use_container_width=True)
         
         # Download button
         csv_data = results_df.to_csv(index=False)
@@ -1088,7 +1088,7 @@ def show_model_performance_page(performance):
         'RMSE': ['mean', 'std', 'min', 'max']
     }).round(2)
     
-    st.dataframe(overall_perf, width="stretch")
+    st.dataframe(overall_perf, use_container_width=True)
     
     # Performance visualization
     col1, col2 = st.columns(2)
@@ -1140,7 +1140,7 @@ def show_model_performance_page(performance):
             })
     
     rankings_df = pd.DataFrame(rankings)
-    st.dataframe(rankings_df, width="stretch")
+    st.dataframe(rankings_df, use_container_width=True)
     
     # Model win counts (reliable models only)
     col1, col2 = st.columns(2)
@@ -1202,7 +1202,7 @@ def show_data_explorer_page(data, predictions, performance):
             (data['Date'].dt.year <= year_range[1])
         ]
         
-        st.dataframe(filtered_data, width="stretch")
+        st.dataframe(filtered_data, use_container_width=True)
         
         # Download button
         csv = filtered_data.to_csv(index=False)
@@ -1215,7 +1215,7 @@ def show_data_explorer_page(data, predictions, performance):
     
     with tab2:
         st.subheader("2026 Predictions")
-        st.dataframe(predictions, width="stretch")
+        st.dataframe(predictions, use_container_width=True)
         
         # Download button
         csv_pred = predictions.to_csv(index=False)
@@ -1228,7 +1228,7 @@ def show_data_explorer_page(data, predictions, performance):
     
     with tab3:
         st.subheader("Model Performance Metrics")
-        st.dataframe(performance, width="stretch")
+        st.dataframe(performance, use_container_width=True)
         
         # Download button
         csv_perf = performance.to_csv(index=False)
