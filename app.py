@@ -535,8 +535,7 @@ def show_overview_page(data, predictions, performance):
     
     # Geographic distribution preview
     st.subheader("🗺️ Geographic Distribution")
-    st.info("💡 **Tip:** Visit the 'Sri Lanka Heatmap' page for an interactive map view!")
-    
+
     # Show a geographical bar chart by district
     geo_data = district_summary.reset_index()
     geo_data = geo_data.sort_values('Total Cases', ascending=True)
